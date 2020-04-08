@@ -1,5 +1,8 @@
 import { Component, AfterViewInit } from '@angular/core';
 import * as L from 'leaflet';
+import * as geojson from 'geojson';
+
+import { MapService } from '../services/map/map.service';
 
 @Component({
   selector: 'app-map',
@@ -7,26 +10,15 @@ import * as L from 'leaflet';
   styleUrls: ['./map.component.scss']
 })
 export class MapComponent implements AfterViewInit {
-  private map;
+  private map: L.Map;
 
-  constructor() { }
+  constructor(
+    private mapService: MapService
+  ) { }
 
   ngAfterViewInit(): void {
-    this.initMap();
-  }
+    this.map = this.mapService.createMap('map');
 
-  private initMap(): void {
-    this.map = L.map('map', {
-      center: [ 53.050039, -1.406985 ],
-      zoom: 15
-    });
-
-    const tiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    });
-
-    tiles.addTo(this.map);
-
+    this.mapService.refreshZones(this.map);
   }
 }
