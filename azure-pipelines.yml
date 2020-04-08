@@ -16,7 +16,7 @@ variables:
   imageRepository: 'spacesui'
   containerRegistry: 'concrestsds.azurecr.io'
   dockerfilePath: '$(Build.SourcesDirectory)/spaces-ui/Dockerfile'
-  tag: '$(Build.BuildId)'
+  tag: '$(Build.BuildNumber)'
   
   # Agent VM image name
   vmImageName: 'ubuntu-latest'
