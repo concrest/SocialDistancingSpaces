@@ -17,9 +17,9 @@ export class FeatureService {
     private http: HttpClient
   ) { }
 
-  getFeatures(/* TODO: bbox args? */): Observable<geojson.GeoJsonObject> {
+  getFeatures(/* TODO: bbox args? */): Observable<geojson.Feature> {
 
-    return new Observable<geojson.GeoJsonObject>(subscriber => {
+    return new Observable<geojson.Feature>(subscriber => {
       this.getIndex(this.demoFeaturesBaseUrl + "index.json").subscribe( index =>{
         index.files.forEach(filename => {
           this.getFeature(this.demoFeaturesBaseUrl + filename).subscribe(
@@ -30,8 +30,8 @@ export class FeatureService {
     });
   }
 
-  private getFeature(url: string): Observable<geojson.GeoJsonObject> {
-    return this.http.get<geojson.GeoJsonObject>(url);
+  private getFeature(url: string): Observable<geojson.Feature> {
+    return this.http.get<geojson.Feature>(url);
   }
 
   private getIndex(url: string) : Observable<Index> {

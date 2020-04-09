@@ -1,8 +1,7 @@
 import { Component, AfterViewInit } from '@angular/core';
-import * as L from 'leaflet';
-import * as geojson from 'geojson';
 
 import { MapService } from '../services/map/map.service';
+import { MapInfo } from '../services/map/types';
 
 @Component({
   selector: 'app-map',
@@ -10,15 +9,15 @@ import { MapService } from '../services/map/map.service';
   styleUrls: ['./map.component.scss']
 })
 export class MapComponent implements AfterViewInit {
-  private map: L.Map;
+  private mapInfo: MapInfo;
 
   constructor(
     private mapService: MapService
   ) { }
 
   ngAfterViewInit(): void {
-    this.map = this.mapService.createMap('map');
+    this.mapInfo = this.mapService.createMap('map');
 
-    this.mapService.refreshZones(this.map);
+    this.mapService.refreshZones(this.mapInfo);
   }
 }
