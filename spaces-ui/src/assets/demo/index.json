@@ -2,6 +2,14 @@
     "files":[
         "ButterleyCorner1.json",
         "ButterleyHill1.json",
-        "ButterleyLane1.json"
+        "ButterleyLane1.json",
+        "Greenway1.json",
+        "Greenway2.json",
+        "PitTop1.json",
+        "CricketGround1.json",
+        "PitTopPathToRoad1.json",
+        "NottinghamRoad1.json",
+        "NottinghamRoad2.json",
+        "NottinghamRoad3.json"
     ]
 }
