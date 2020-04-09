@@ -3,6 +3,10 @@
 # We label our stage as ‘builder’
 FROM node:12-alpine as builder
 
+ARG BUILD_BUILDNUMBER=0.0
+ARG BUILD_SOURCEVERSION=local-dev-build
+ARG BUILD_DATE=unknown-date
+
 COPY package.json package-lock.json ./
 
 ## Storing node modules on a separate layer will prevent unnecessary npm installs at each build
@@ -15,8 +19,13 @@ COPY . .
 
 ## Build the angular app in production mode and store the artifacts in dist folder
 
-RUN npm run ng build -- --prod --output-path=dist
+ENV BUILD_BUILDNUMBER $BUILD_BUILDNUMBER
+ENV BUILD_SOURCEVERSION $BUILD_SOURCEVERSION
+ENV BUILD_DATE $BUILD_DATE
 
+RUN node get-versioning.js
+
+RUN npm run ng build -- --prod --output-path=dist
 
 ### STAGE 2: Setup ###
 

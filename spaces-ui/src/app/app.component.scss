@@ -29,4 +29,18 @@
        `<body>` to be our scrolling element for mobile layouts. */
     flex: 1 0 auto;
   }
+
+  .version-details {
+    margin-left: 8px;
+    font-size: small;
+  }
+
+  .version-details a {
+    color: white;
+    text-decoration: none;
+  }
+
+  a:hover:hover {
+    text-decoration: underline;
+  }
   

@@ -2,6 +2,13 @@
   <mat-toolbar color="primary" class="main-toolbar">
     <button mat-icon-button (click)="snav.toggle()"><mat-icon>menu</mat-icon></button>
     <h1 class="main-app-name">Social Distancing Spaces</h1>
+    <div class="version-details">
+      <a href="https://github.com/concrest/SocialDistancingSpaces" 
+        title="{{versioningDetails.buildDate}} - {{versioningDetails.sourceVersion}}"
+        target="_blank">
+        v{{versioningDetails.buildNumber}}
+      </a>
+    </div>
   </mat-toolbar>
 
   <mat-sidenav-container class="main-sidenav-container"

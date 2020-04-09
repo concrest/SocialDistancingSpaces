@@ -1,5 +1,6 @@
 import {MediaMatcher} from '@angular/cdk/layout';
 import {ChangeDetectorRef, Component, OnDestroy, ViewChild, ElementRef, AfterViewInit} from '@angular/core';
+import {versionInfo} from './version-info'
 
 @Component({
   selector: 'app-root',
@@ -9,6 +10,8 @@ import {ChangeDetectorRef, Component, OnDestroy, ViewChild, ElementRef, AfterVie
 export class AppComponent implements OnDestroy {
   @ViewChild('snav') snav: ElementRef;
   mobileQuery: MediaQueryList;
+
+  versioningDetails = versionInfo;
 
   private _mobileQueryListener: () => void;
 
