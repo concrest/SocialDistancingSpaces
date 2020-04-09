@@ -19,11 +19,7 @@ COPY . .
 
 ## Build the angular app in production mode and store the artifacts in dist folder
 
-ENV BUILD_BUILDNUMBER $BUILD_BUILDNUMBER
-ENV BUILD_SOURCEVERSION $BUILD_SOURCEVERSION
-ENV BUILD_DATE $BUILD_DATE
-
-RUN node get-versioning.js
+RUN node set-versioning.js "$BUILD_SOURCEVERSION" "$BUILD_DATE" "$BUILD_BUILDNUMBER"
 
 RUN npm run ng build -- --prod --output-path=dist
 
