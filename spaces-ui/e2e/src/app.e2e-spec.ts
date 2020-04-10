@@ -8,9 +8,9 @@ describe('workspace-project App', () => {
     page = new AppPage();
   });
 
-  it('should display welcome message', () => {
+  it('should display page title', () => {
     page.navigateTo();
-    expect(page.getTitleText()).toEqual('sdm-ui app is running!');
+    expect(page.getTitleText()).toEqual('Social Distancing Spaces');
   });
 
   afterEach(async () => {
