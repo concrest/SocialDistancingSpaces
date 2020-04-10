@@ -55,6 +55,8 @@ export class MapService {
 
   public refreshZones(mapInfo: MapInfo) : void {
     const self = this;
+
+    // TODO: Needs to handle the error case of the index call erroring
     this.featureService.getFeatures().subscribe(
       geojson => {
         
