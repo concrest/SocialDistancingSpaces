@@ -5,6 +5,7 @@ import { catchError, retry } from 'rxjs/operators';
 import * as geojson from 'geojson';
 
 import { Index, ClientOrNetworkError, ServerSideError } from './types';
+import { LogService } from '../log/log.service';
 
 export type HandleError = <T> (error: HttpErrorResponse) => Observable<T>;
 
@@ -19,6 +20,7 @@ export class FeatureService {
   private getFeatureErrorHandler = this.createErrorHandlerFor<geojson.Feature>('getFeature');
 
   constructor(
+    private log: LogService,
     private http: HttpClient
   ) { }
 
@@ -65,7 +67,7 @@ export class FeatureService {
     return (error: HttpErrorResponse): Observable<T> => {
       if (error.error instanceof ErrorEvent) {
         
-        console.error('An error occurred:', context, error.error.message);
+        this.log.error('An error occurred:', context, error.error.message);
   
         return throwError({
           context: context,
@@ -74,7 +76,7 @@ export class FeatureService {
 
       } else {
                 
-        console.error(
+        this.log.error(
           `${context} Backend returned code ${error.status}, ` +
           `body was: ${error.error}`);
   
