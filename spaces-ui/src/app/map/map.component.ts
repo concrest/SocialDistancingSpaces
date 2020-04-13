@@ -34,6 +34,10 @@ export class MapComponent implements AfterViewInit {
   hideModal() : void {
     this.showModal = false;
   }
+
+  goToDemoArea() : void {
+    this.mapService.goToDemoArea(this.mapInfo);
+  }
   
   findUser() : void {
     this.mapService.geolocate(this.mapInfo).subscribe(

@@ -21,9 +21,12 @@
       <mat-grid-tile class="amber">Caution</mat-grid-tile>
       <mat-grid-tile class="green">Safe</mat-grid-tile>
     </mat-grid-list>
+    <p>
+      <button mat-button (click)="goToDemoArea()">Show demo area</button>
+    </p>
   </mat-card-content>
   <mat-card-actions>
-    <button mat-button (click)="findUser()">Find me</button>
+    <button mat-button (click)="findUser()" color="primary">Find me</button>
     <a mat-button routerLink="/help">Help</a>    
     <button mat-button (click)="browseMap()">Browse</button>
   </mat-card-actions>

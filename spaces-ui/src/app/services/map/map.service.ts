@@ -11,6 +11,7 @@ import { Observable } from 'rxjs';
 })
 
 export class MapService {
+  
 
   private defaultCentre: L.LatLngExpression = [54.65118896, -4.416503906];
   private defaultZoom: number = 6;
@@ -87,6 +88,13 @@ export class MapService {
     });    
   }
 
+  public goToDemoArea(mapInfo: MapInfo) {
+    // TODO: remove when done with demo
+    mapInfo.map.flyTo([53.052339, -1.395106], 15, {
+      animate: false
+    });
+  }
+
   private createCategoryLayerGroup(map: L.Map) : L.LayerGroup {
     const layer = L.layerGroup(); 
     layer.addTo(map);
@@ -107,22 +115,22 @@ export class MapService {
   }
 
   private getFeatureStyle(category: string){
+
+    return {
+      color: this.getColour(category),
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.6
+    };
+  }
+
+  private getColour(category: string) : string {
     switch (category) {
-      case 'green': return {
-        "color": "green",
-        "weight": 2,
-        "opacity": 1
-      };
-      case 'amber': return {
-        "color": "orange",
-        "weight": 2,
-        "opacity": 1
-      };
-      case 'red': return {
-        "color": "red",
-        "weight": 2,
-        "opacity": 1
-      };
+      case 'green': return '#14801b';
+      case 'amber': return '#eb9234';
+      case 'red': return 'red';      
     }
+
+    return 'green';
   }
 }
