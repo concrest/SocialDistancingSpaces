@@ -1,7 +1,9 @@
 import { async, ComponentFixture, TestBed } from '@angular/core/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 
 import { MapComponent } from './map.component';
 import { MapService } from '../services/map/map.service';
+import { MaterialModule } from '../material.module';
 
 describe('MapComponent', () => {
   let component: MapComponent;
@@ -13,6 +15,10 @@ describe('MapComponent', () => {
 
     TestBed.configureTestingModule({
       declarations: [ MapComponent ],
+      imports: [
+        MaterialModule,
+        NoopAnimationsModule
+      ],
       providers: [
         { provide: MapService, useValue: spy }
       ]

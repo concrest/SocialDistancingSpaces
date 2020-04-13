@@ -15,3 +15,50 @@
 #map {
     height: 100%;
 }
+
+.modal-window {
+    width: 260px;
+    max-width: 260px;
+    
+    margin-left: 10px;
+    z-index: 1000;
+    text-align: center;
+    top: 80px;
+}
+
+.quote {
+    font-style: italic;
+}
+
+.green {
+    color: white;
+    background-color: green;
+    border: solid green 1px;
+}
+
+.amber {
+    color: white;
+    background-color: orangered;
+    border: solid orangered 1px;
+}
+
+.red {
+    color: white;
+    background-color: red;
+    border: solid red 1px;
+}
+
+.green-header {
+    color: green;
+    border: solid green 1px;
+}
+
+.amber-header {
+    color: orangered;
+    border: solid orangered 1px;
+}
+
+.red-header {    
+    color: red;
+    border: solid red 1px;
+}

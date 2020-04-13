@@ -3,3 +3,28 @@
     <div id="map"></div>
   </div>
 </div>
+
+<mat-card class="modal-window" *ngIf="showModal">
+  <mat-card-header>
+    <mat-card-title>Social Distancing</mat-card-title>
+    <mat-card-subtitle>Find safe social distancing spaces</mat-card-subtitle>
+  </mat-card-header>
+  <mat-card-content>
+    <p>
+      Spaces are coloured based on risk
+    </p>
+    <mat-grid-list cols="3" rowHeight="30px">
+      <mat-grid-tile class="red-header">Red</mat-grid-tile>
+      <mat-grid-tile class="amber-header">Amber</mat-grid-tile>
+      <mat-grid-tile class="green-header">Green</mat-grid-tile>
+      <mat-grid-tile class="red">Risky</mat-grid-tile>
+      <mat-grid-tile class="amber">Caution</mat-grid-tile>
+      <mat-grid-tile class="green">Safe</mat-grid-tile>
+    </mat-grid-list>
+  </mat-card-content>
+  <mat-card-actions>
+    <button mat-button (click)="findUser()">Find me</button>
+    <a mat-button routerLink="/help">Help</a>    
+    <button mat-button (click)="browseMap()">Browse</button>
+  </mat-card-actions>
+</mat-card>
