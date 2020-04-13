@@ -4,6 +4,7 @@ import * as geojson from 'geojson';
 
 import { FeatureService } from '../feature/feature.service';
 import { MapInfo } from './types'
+import { Observable } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -11,8 +12,8 @@ import { MapInfo } from './types'
 
 export class MapService {
 
-  private defaultCentre: L.LatLngExpression = [ 53.050039, -1.406985 ];
-  private defaultZoom: number = 15;
+  private defaultCentre: L.LatLngExpression = [54.65118896, -4.416503906];
+  private defaultZoom: number = 6;
   private defaultTileLayerTemplate: string = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
   private defaultTileLayerAttribution: string = '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>';
   private defaultTileLayerMaxZoom: number = 19;
@@ -74,6 +75,16 @@ export class MapService {
         mapFeature.addTo(mapInfo.categoryLayers[geojson.properties.category]);        
       }
     );
+  }
+
+  public geolocate(mapInfo: MapInfo) : Observable<L.LocationEvent> {
+
+    return new Observable<L.LocationEvent>(subscriber => {
+      mapInfo.map.on('locationfound', e => subscriber.next(e));
+      mapInfo.map.on('locationerror', e => subscriber.error(e));
+
+      mapInfo.map.locate({setView: true, maxZoom: 16});
+    });    
   }
 
   private createCategoryLayerGroup(map: L.Map) : L.LayerGroup {
