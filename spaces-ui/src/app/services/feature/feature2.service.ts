@@ -12,39 +12,26 @@ export type HandleError = <T> (error: HttpErrorResponse) => Observable<T>;
 @Injectable({
   providedIn: 'root'
 })
-export class FeatureService {
+export class Feature2Service {
 
   // TODO: Probably need a base URL for this?
-  private readonly demoFeaturesBaseUrl = 'assets/demo/';
+  private readonly fileRootUrl = 'assets/fakeFileRoot';
+  private readonly regionsUrl = `${this.fileRootUrl}/_regions.json`;
+
+  private readonly getMetaDataErrorHandler = this.createErrorHandlerFor<Index>('getMetaData');
+  private readonly getFeatureCollectionErrorHandler = this.createErrorHandlerFor<geojson.Feature>('getFeatureCollection');
+
   private readonly getIndexErrorHandler = this.createErrorHandlerFor<Index>('getIndex');
   private readonly getFeatureErrorHandler = this.createErrorHandlerFor<geojson.Feature>('getFeature');
+
+  private 
 
   constructor(
     private log: LogService,
     private http: HttpClient
   ) { }
 
-  public getFeatures(/* TODO: bbox args? */): Observable<geojson.Feature> {
-
-    return new Observable<geojson.Feature>(subscriber => {
-      this.getIndex(this.demoFeaturesBaseUrl + "index.json").subscribe( index => {
-        // Index lookup sucessful
-        index.files.forEach(filename => {
-          this.getFeature(this.demoFeaturesBaseUrl + filename).subscribe(
-            // Feature loaded successfully
-            geojson => subscriber.next(geojson),
-            noop // ignore error - already been logged            
-          );
-        });        
-      }, indexError => {
-        // Pass error to observable's subscriber
-        subscriber.error(indexError);
-      }); 
-    });
-  }
-
   public getFeaturesForPoint(centre: geojson.Position, zoom: number) : Observable<geojson.Feature> {
-    // TODO: Emit 1 feature per item in a FeatureCollection - caller needs individual features, not the collection
     throw new Error("Method not implemented.");
   }
 

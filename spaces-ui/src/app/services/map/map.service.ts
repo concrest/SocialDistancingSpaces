@@ -33,17 +33,9 @@ export class MapService {
       layers: [streetMapLayer]
     });
 
-    const redLayer = this.createCategoryLayerGroup(map); 
-    const amberLayer = this.createCategoryLayerGroup(map); 
-    const greenLayer = this.createCategoryLayerGroup(map); 
+    const { redLayer, amberLayer, greenLayer } = this.addLayerControl(map);
 
-    const categoryLayers = {
-      "Red Spaces": redLayer,
-      "Amber Spaces": amberLayer,
-      "Green Spaces": greenLayer
-    }
-
-    L.control.layers(null, categoryLayers).addTo(map);
+    this.setupEventHandlers(map);
 
     return {
       map: map,
@@ -59,21 +51,9 @@ export class MapService {
     const self = this;
 
     // TODO: Needs to handle the error case of the index call erroring
-    this.featureService.getFeatures().subscribe(
+    this.featureService.getFeatures().subscribe(      
       geojson => {
-        
-        const mapFeature = L.geoJSON(geojson, {
-          onEachFeature: function(feature, layer) {
-            if (feature.properties) {              
-              layer.bindPopup(self.getPopupContents(feature));
-            }
-          },
-          style: function(feature) {
-            return self.getFeatureStyle(feature.properties.category);
-          }
-        });
-        
-        mapFeature.addTo(mapInfo.categoryLayers[geojson.properties.category]);        
+        self.putFeatureOnMap(mapInfo, geojson);
       }
     );
   }
@@ -93,6 +73,70 @@ export class MapService {
     mapInfo.map.flyTo([53.052339, -1.395106], 15, {
       animate: false
     });
+  }
+
+  private setupEventHandlers(map: L.Map) {
+    map.on('moveend', this.onMoveEnd, this) // <-- context === `this` makes `this` point to MapService in `onMoveEnd`. Otherwise `this` will be `map`
+  }
+
+  private onMoveEnd(event: L.LeafletEvent): void {
+    const self = this as MapService; // <-- `this` is the MapService as `setupEventHandlers` passed that in as the `context`
+    const map = event.sourceTarget as L.Map;
+
+    self.refreshSpaces(map);
+  }
+
+  private refreshSpaces(map: L.Map) : void {
+    const centre = map.getCenter();
+    const zoom = map.getZoom();
+
+    //this.featureService.getFeaturesForPoint([centre.lat, centre.lng], zoom);
+  }
+
+  private putFeatureOnMap(mapInfo: MapInfo, geojson: geojson.Feature) : void {
+    const self = this;
+
+    // Get the map layer first, so we don't create a feature if we have
+    // nowhere to put it
+    const mapLayer = this.getLayer(mapInfo, geojson);
+    if (mapLayer) {      
+      const mapFeature = L.geoJSON(geojson, {
+        onEachFeature: function(feature, layer) {
+          if (feature.properties) {              
+            layer.bindPopup(self.getPopupContents(feature));
+          }
+        },
+        style: function(feature) {
+          return self.getFeatureStyle(feature.properties.category);
+        }
+      });  
+      
+      mapFeature.addTo(mapLayer);        
+    }
+  }
+
+  private getLayer(mapInfo: MapInfo, geojson: geojson.Feature) : L.LayerGroup {
+    if (geojson.properties && geojson.properties.category) {
+      return mapInfo.categoryLayers[geojson.properties.category];
+    }
+
+    return null;
+  }
+  
+  private addLayerControl(map: L.Map) {
+    const redLayer = this.createCategoryLayerGroup(map);
+    const amberLayer = this.createCategoryLayerGroup(map);
+    const greenLayer = this.createCategoryLayerGroup(map);
+    
+    const categoryLayers = {
+      "Red Spaces": redLayer,
+      "Amber Spaces": amberLayer,
+      "Green Spaces": greenLayer
+    };
+
+    L.control.layers(null, categoryLayers).addTo(map);
+
+    return { redLayer, amberLayer, greenLayer };
   }
 
   private createCategoryLayerGroup(map: L.Map) : L.LayerGroup {
