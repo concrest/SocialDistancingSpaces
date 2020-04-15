@@ -1,18 +1,23 @@
 import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+
 import * as L from 'leaflet';
 import * as geojson from 'geojson';
 
 import { FeatureService } from '../feature/feature.service';
 import { MapInfo } from './types'
-import { Observable } from 'rxjs';
+import { LogService } from '../log/log.service';
+
+interface MapInfoContext {
+  mapService: MapService,
+  mapInfo: MapInfo
+}
+
 
 @Injectable({
   providedIn: 'root'
 })
-
 export class MapService {
-  
-
   private defaultCentre: L.LatLngExpression = [54.65118896, -4.416503906];
   private defaultZoom: number = 6;
   private defaultTileLayerTemplate: string = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -20,7 +25,8 @@ export class MapService {
   private defaultTileLayerMaxZoom: number = 19;
 
   constructor(
-    private featureService: FeatureService
+    private featureService: FeatureService,
+    private log: LogService
   ) { }
 
   public createMap(element: string | HTMLElement): MapInfo {
@@ -35,27 +41,18 @@ export class MapService {
 
     const { redLayer, amberLayer, greenLayer } = this.addLayerControl(map);
 
-    this.setupEventHandlers(map);
-
-    return {
+    const mapInfo = {
       map: map,
       categoryLayers: {
         red: redLayer,
         amber: amberLayer,
         green: greenLayer
       }
-    };
-  }
+    } as MapInfo;
 
-  public refreshZones(mapInfo: MapInfo) : void {
-    const self = this;
+    this.setupEventHandlers(mapInfo);
 
-    // TODO: Needs to handle the error case of the index call erroring
-    this.featureService.getFeatures().subscribe(      
-      geojson => {
-        self.putFeatureOnMap(mapInfo, geojson);
-      }
-    );
+    return mapInfo
   }
 
   public geolocate(mapInfo: MapInfo) : Observable<L.LocationEvent> {
@@ -75,26 +72,34 @@ export class MapService {
     });
   }
 
-  private setupEventHandlers(map: L.Map) {
-    map.on('moveend', this.onMoveEnd, this) // <-- context === `this` makes `this` point to MapService in `onMoveEnd`. Otherwise `this` will be `map`
+  private setupEventHandlers(mapInfo: MapInfo) {
+    mapInfo.map.on('moveend', this.onMoveEnd, {
+      mapService: this,
+      mapInfo: mapInfo
+    } as MapInfoContext) // <-- context === `MapInfoContext` makes `this` point to MapInfoContext in `onMoveEnd`. Otherwise `this` will be `map`
   }
 
   private onMoveEnd(event: L.LeafletEvent): void {
-    const self = this as MapService; // <-- `this` is the MapService as `setupEventHandlers` passed that in as the `context`
-    const map = event.sourceTarget as L.Map;
+    const mapInfoContext = (this as unknown) as MapInfoContext; // <-- `this` is the MapInfoContext as `setupEventHandlers` passed that in as the `context`
+    const self = mapInfoContext.mapService;
+    //const map = event.sourceTarget as L.Map;
 
-    self.refreshSpaces(map);
+    self.refreshSpaces(mapInfoContext.mapInfo);
   }
 
-  private refreshSpaces(map: L.Map) : void {
-    const centre = map.getCenter();
-    const zoom = map.getZoom();
+  private refreshSpaces(mapInfo: MapInfo) : void {
+    const visibleMapArea = mapInfo.map.getBounds()
+    const zoom = mapInfo.map.getZoom();
 
-    //this.featureService.getFeaturesForPoint([centre.lat, centre.lng], zoom);
+    this.featureService.getFeaturesForArea(visibleMapArea, zoom).subscribe(feature => {
+      this.putFeatureOnMap(mapInfo, feature);
+    });
   }
 
   private putFeatureOnMap(mapInfo: MapInfo, geojson: geojson.Feature) : void {
     const self = this;
+
+    self.log.info("Drawing ", geojson.properties);
 
     // Get the map layer first, so we don't create a feature if we have
     // nowhere to put it

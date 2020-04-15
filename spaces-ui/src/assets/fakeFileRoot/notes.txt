@@ -1,0 +1,19 @@
+Country Bounding Boxes:
+https://gist.github.com/graydon/11198540
+
+Ireland region currently as an example for how multiple regions would be modelled
+
+
+From: https://gis.stackexchange.com/questions/82645/uk-area-boundaries
+"For administrative boundaries, GADM is always the best free source:
+
+http://www.gadm.org/download
+
+adm_2 includes the counties and larger town boundaries.
+
+If you need more, have a look at what Ordnance Survey offers as OpenData:
+
+http://www.ordnancesurvey.co.uk/business-and-government/products/boundary-line.html
+
+For the post code data (which is not published freely), see http://wiki.openstreetmap.org/wiki/WikiProject_UK_Postcodes
+"

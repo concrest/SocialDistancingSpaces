@@ -1,9 +1,5 @@
 import * as geojson from 'geojson';
 
-export interface Index {
-  files: string[]
-}
-
 export interface ClientOrNetworkError {  
   context: string,
   errorMessage: string
@@ -15,14 +11,13 @@ export interface ServerSideError {
   statusCode: number
 }
 
-export interface Region {
-  name: string,
-  bbox: geojson.BBox,
-  sectorsRef: string  
+export interface IndexFile {
+  items: AreaMetadata[]
 }
 
-export interface Sector {
+export interface AreaMetadata {
   name: string,
-  bbox: geojson.BBox,
-  featureCollectionRef: string
+  bbox: geojson.BBox,  
+  index?: string,
+  features?: string
 }

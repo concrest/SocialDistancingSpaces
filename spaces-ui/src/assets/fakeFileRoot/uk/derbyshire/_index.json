@@ -1,0 +1,14 @@
+{
+    "items": [
+        {
+            "name": "Amber Valley, Derbyshire, UK",
+            "bbox": [-1.609841, 52.922311, -1.324196, 53.132925],
+            "features": "ambervalley.json"
+        },
+        {
+            "name": "Bolsover, Derbyshire, UK",
+            "bbox": [-1.378128, 53.077822, -1.165954, 53.313940],
+            "features": "bolsover.json"
+        }
+    ]
+}

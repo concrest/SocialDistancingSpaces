@@ -23,8 +23,6 @@ export class MapComponent implements AfterViewInit {
 
   ngAfterViewInit(): void {
     this.mapInfo = this.mapService.createMap('map');
-
-    this.mapService.refreshZones(this.mapInfo);
   }
 
   browseMap() : void {
