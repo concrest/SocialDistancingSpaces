@@ -20,7 +20,31 @@ interface IndexFileInfo {
 
 interface FeatureCollectionInfo {
   fullPath: string,  
-  features: geojson.Feature[]
+  featuresCollection: geojson.FeatureCollection
+}
+
+export interface VisibleMapAreaChangedEvent {
+  eventType: VisibleMapAreaChangedEventType,
+  id: string
+}
+
+export interface FeatureCollectionVisibleEvent extends VisibleMapAreaChangedEvent {
+  featureCollection: geojson.FeatureCollection,
+  parentIndexUrls: string[]
+}
+
+export interface FeatureCollectionSummaryEvent extends VisibleMapAreaChangedEvent {
+  parentIndexUrls: string[],
+  bbox: geojson.BBox,
+  name: string,
+  totalSpaces: number
+}
+
+export enum VisibleMapAreaChangedEventType {
+  FeatureCollectionVisible,
+  FeatureCollectionOutOfView,
+  IndexChildrenOutOfView,
+  FeatureCollectionInViewOutsideMinZoom
 }
 
 @Injectable({
@@ -43,47 +67,79 @@ export class FeatureService {
     private http: HttpClient
   ) { }
 
-  public getFeaturesForArea(visibleMapArea: L.LatLngBounds, zoom: number): Observable<geojson.Feature> {
-    return new Observable<geojson.Feature>(subscriber => {
-      this.getFeaturesFromIndex(this.rootIndexUrl, visibleMapArea, zoom, subscriber);
+  public onVisibleMapAreaChanged(visibleMapArea: L.LatLngBounds, zoom: number): Observable<VisibleMapAreaChangedEvent> {
+    return new Observable<VisibleMapAreaChangedEvent>(subscriber => {
+      this.getFeaturesFromIndex(this.rootIndexUrl, [], visibleMapArea, zoom, subscriber);
     });
   }
 
-  private getFeaturesFromIndex(url: string, visibleMapArea: L.LatLngBounds, zoom: number, subscriber: Subscriber<geojson.Feature>) {
+  private getFeaturesFromIndex(url: string, parentIndexUrls: string[], visibleMapArea: L.LatLngBounds, zoom: number, subscriber: Subscriber<VisibleMapAreaChangedEvent>) {
     this.getIndex(url).subscribe(indexInfo => {
+
+      parentIndexUrls.push(url);
+
       indexInfo.indexFile.items.forEach(areaData => {
 
-        const southWest = new L.LatLng(areaData.bbox[1], areaData.bbox[0]);
-        const northEast = new L.LatLng(areaData.bbox[3], areaData.bbox[2]);
+        if (areaData.bboxBounds == null) {
+          const southWest = new L.LatLng(areaData.bbox[1], areaData.bbox[0]);
+          const northEast = new L.LatLng(areaData.bbox[3], areaData.bbox[2]);
 
-        const areaBounds = new L.LatLngBounds(southWest, northEast);
+          areaData.bboxBounds = new L.LatLngBounds(southWest, northEast);
+        }
 
-        if (visibleMapArea.intersects(areaBounds)) {
-          this.log.info("Inside area", areaData.name);
+        const isInsideArea = visibleMapArea.intersects(areaData.bboxBounds);
 
-          if (areaData.features != null) { // && zoom > _someSetLimit
-            const featuresUrl = `${indexInfo.parentPath}/${areaData.features}`;
+        if (areaData.features != null) {  
 
-            // go and get the feature collection file
-            this.getFeatures(featuresUrl, subscriber);
+          const featuresUrl = `${indexInfo.parentPath}/${areaData.features.url}`;
+
+          // this links to a feature collection
+          if (isInsideArea) {
+            if (zoom > 12) {  // TODO: decide what the cut off zoom level of spaces is
+              // go and get the feature collection file
+              this.getFeatures(featuresUrl, parentIndexUrls, subscriber);
+            }
+            else {              
+              subscriber.next({
+                eventType: VisibleMapAreaChangedEventType.FeatureCollectionInViewOutsideMinZoom,
+                id: featuresUrl,
+                name: areaData.name,
+                parentIndexUrls: parentIndexUrls,
+                totalSpaces: areaData.features.totalSpaces,
+                bbox: areaData.bbox
+              } as FeatureCollectionSummaryEvent);
+            }
           }
-
-          if (areaData.index != null) {
-            
-            const nextIndexUrl = `${indexInfo.parentPath}/${areaData.index}`;
-
-            // recurse back into this function for the next URL
-            this.getFeaturesFromIndex(nextIndexUrl, visibleMapArea, zoom, subscriber);
+          else {
+            // TODO: The feature Collection is not visible, so pass the url up to the subscriber 
+            // in case it needs to be removed from the map
+            subscriber.next({
+              eventType: VisibleMapAreaChangedEventType.FeatureCollectionOutOfView,
+              id: featuresUrl
+            });
           }
         }
-        else {
-          // not in the area any more - could clear features from cache for the child indices of this region?
-        }          
+
+        if (areaData.index != null) {
+          const nextIndexUrl = `${indexInfo.parentPath}/${areaData.index}`;
+
+          if (isInsideArea) {
+            // recurse back into this function for the next URL
+            this.getFeaturesFromIndex(nextIndexUrl, parentIndexUrls, visibleMapArea, zoom, subscriber);
+          }
+          else {
+            // The children of this entire area are all out of bounds - indicate this with an event
+            subscriber.next({
+              eventType: VisibleMapAreaChangedEventType.IndexChildrenOutOfView,
+              id: nextIndexUrl
+            });
+          }
+        }                
       });          
     });
   }
 
-  private getFeatures(url: string, subscriber: Subscriber<geojson.Feature>) : void {
+  private getFeatures(url: string, parentIndexUrls: string[], subscriber: Subscriber<VisibleMapAreaChangedEvent>) : void {
     const self = this as FeatureService;
 
     const cachedCollection = self.getFeaturesFromCache(url);
@@ -93,25 +149,29 @@ export class FeatureService {
       // Don't want the features redrawing on every move, but it does need to support moving between regions
       // that haven't been loaded yet.
 
-      self.log.info("Features already loaded for", url);
+      self.log.info("FeatureCollection cached for", url);
 
-      // TODO: Could make this service *always* return features, and let the map decide what to do?
-      // That seems cleaner, but not sure how the map would know that a feature was already added to a layer yet.
-      //cachedCollection.features.forEach(f => subscriber.next(f));
+      subscriber.next({
+        eventType: VisibleMapAreaChangedEventType.FeatureCollectionVisible,
+        id: url,
+        featureCollection: cachedCollection.featuresCollection,
+        parentIndexUrls: parentIndexUrls
+      } as FeatureCollectionVisibleEvent);
 
       return;
     }
 
-    self.log.info("Getting features from server for ", url);
+    self.log.info("Getting FeatureCollection from server for", url);
 
     self.getFeaturesFromServer(url).subscribe( collectionInfo => {
       self.featureCollectionCache.push(collectionInfo);
 
-      collectionInfo.features.forEach(f =>{
-        subscriber.next(f);
-      });
-      
-      subscriber.complete();
+      subscriber.next({
+        eventType: VisibleMapAreaChangedEventType.FeatureCollectionVisible,
+        id: url,
+        featureCollection: collectionInfo.featuresCollection,
+        parentIndexUrls: parentIndexUrls
+      } as FeatureCollectionVisibleEvent);
 
     }, error => subscriber.error(error));
   }
@@ -126,7 +186,7 @@ export class FeatureService {
         .subscribe((collection:geojson.FeatureCollection)  => {
           const collectionInfo: FeatureCollectionInfo = {
             fullPath: url,
-            features: collection.features
+            featuresCollection: collection
           };
 
           subscriber.next(collectionInfo);

@@ -4,7 +4,7 @@ import { Observable } from 'rxjs';
 import * as L from 'leaflet';
 import * as geojson from 'geojson';
 
-import { FeatureService } from '../feature/feature.service';
+import { FeatureService, VisibleMapAreaChangedEventType, FeatureCollectionVisibleEvent } from '../feature/feature.service';
 import { MapInfo } from './types'
 import { LogService } from '../log/log.service';
 
@@ -82,7 +82,6 @@ export class MapService {
   private onMoveEnd(event: L.LeafletEvent): void {
     const mapInfoContext = (this as unknown) as MapInfoContext; // <-- `this` is the MapInfoContext as `setupEventHandlers` passed that in as the `context`
     const self = mapInfoContext.mapService;
-    //const map = event.sourceTarget as L.Map;
 
     self.refreshSpaces(mapInfoContext.mapInfo);
   }
@@ -91,8 +90,10 @@ export class MapService {
     const visibleMapArea = mapInfo.map.getBounds()
     const zoom = mapInfo.map.getZoom();
 
-    this.featureService.getFeaturesForArea(visibleMapArea, zoom).subscribe(feature => {
-      this.putFeatureOnMap(mapInfo, feature);
+    this.featureService.onVisibleMapAreaChanged(visibleMapArea, zoom).subscribe(evt => {
+
+      this.log.info("onVisibleMapAreaChanged Event", evt);
+
     });
   }
 

@@ -1,4 +1,5 @@
 import * as geojson from 'geojson';
+import * as L from 'leaflet';
 
 export interface ClientOrNetworkError {  
   context: string,
@@ -19,5 +20,11 @@ export interface AreaMetadata {
   name: string,
   bbox: geojson.BBox,  
   index?: string,
-  features?: string
+  features?: FeaturesMetadata,
+  bboxBounds?: L.LatLngBounds
+}
+
+export interface FeaturesMetadata {
+  url: string,
+  totalSpaces: number
 }
