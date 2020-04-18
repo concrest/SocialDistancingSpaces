@@ -4,15 +4,23 @@ import { Observable } from 'rxjs';
 import * as L from 'leaflet';
 import * as geojson from 'geojson';
 
-import { FeatureService, VisibleMapAreaChangedEventType, FeatureCollectionVisibleEvent } from '../feature/feature.service';
-import { MapInfo } from './types'
+import { FeatureService, VisibleMapAreaChangedEventType, FeatureCollectionVisibleEvent, FeatureCollectionSummaryEvent, VisibleMapAreaChangedEvent, bboxToLatLngBounds } from '../feature/feature.service';
 import { LogService } from '../log/log.service';
 
-interface MapInfoContext {
-  mapService: MapService,
-  mapInfo: MapInfo
+interface VisibleFeatureCollectionLayer {
+  url: string,
+  parentIndexUrls: string[],
+  layer: L.GeoJSON
 }
 
+interface RegionMarkerInfo {
+  id: string,
+  parentIndexUrls: string[],
+  bbox: geojson.BBox,
+  name: string,
+  totalSpaces: number,
+  marker?: L.Marker
+}
 
 @Injectable({
   providedIn: 'root'
@@ -24,12 +32,15 @@ export class MapService {
   private defaultTileLayerAttribution: string = '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>';
   private defaultTileLayerMaxZoom: number = 19;
 
+  private featureCollectionLayer: VisibleFeatureCollectionLayer[] = [];
+  private regionMarkerLayer: RegionMarkerInfo[] = [];
+
   constructor(
     private featureService: FeatureService,
     private log: LogService
   ) { }
 
-  public createMap(element: string | HTMLElement): MapInfo {
+  public createMap(element: string | HTMLElement): L.Map {
 
     const streetMapLayer = this.createStreetMapLayer();
 
@@ -39,117 +50,168 @@ export class MapService {
       layers: [streetMapLayer]
     });
 
-    const { redLayer, amberLayer, greenLayer } = this.addLayerControl(map);
+    this.setupEventHandlers(map);
 
-    const mapInfo = {
-      map: map,
-      categoryLayers: {
-        red: redLayer,
-        amber: amberLayer,
-        green: greenLayer
-      }
-    } as MapInfo;
-
-    this.setupEventHandlers(mapInfo);
-
-    return mapInfo
+    return map
   }
 
-  public geolocate(mapInfo: MapInfo) : Observable<L.LocationEvent> {
+  public geolocate(map: L.Map) : Observable<L.LocationEvent> {
 
     return new Observable<L.LocationEvent>(subscriber => {
-      mapInfo.map.on('locationfound', e => subscriber.next(e));
-      mapInfo.map.on('locationerror', e => subscriber.error(e));
+      map.on('locationfound', e => subscriber.next(e));
+      map.on('locationerror', e => subscriber.error(e));
 
-      mapInfo.map.locate({setView: true, maxZoom: 16});
+      map.locate({setView: true, maxZoom: 16});
     });    
   }
 
-  public goToDemoArea(mapInfo: MapInfo) {
+  public goToDemoArea(map: L.Map) {
     // TODO: remove when done with demo
-    mapInfo.map.flyTo([53.052339, -1.395106], 15, {
+    map.flyTo([53.052339, -1.395106], 15, {
       animate: false
     });
   }
 
-  private setupEventHandlers(mapInfo: MapInfo) {
-    mapInfo.map.on('moveend', this.onMoveEnd, {
-      mapService: this,
-      mapInfo: mapInfo
-    } as MapInfoContext) // <-- context === `MapInfoContext` makes `this` point to MapInfoContext in `onMoveEnd`. Otherwise `this` will be `map`
+  private setupEventHandlers(map: L.Map) {
+    map.on('moveend', this.onMoveEnd, this) // <-- context === `this` makes the `this` in `onMoveEnd` point to MapService. Otherwise `this` will be `map`
   }
 
   private onMoveEnd(event: L.LeafletEvent): void {
-    const mapInfoContext = (this as unknown) as MapInfoContext; // <-- `this` is the MapInfoContext as `setupEventHandlers` passed that in as the `context`
-    const self = mapInfoContext.mapService;
-
-    self.refreshSpaces(mapInfoContext.mapInfo);
+    const map = event.sourceTarget as L.Map;      
+    this.refreshSpaces(map);
   }
 
-  private refreshSpaces(mapInfo: MapInfo) : void {
-    const visibleMapArea = mapInfo.map.getBounds()
-    const zoom = mapInfo.map.getZoom();
+  private refreshSpaces(map: L.Map) : void {
+    const visibleMapArea = map.getBounds()
+    const zoom = map.getZoom();
 
     this.featureService.onVisibleMapAreaChanged(visibleMapArea, zoom).subscribe(evt => {
-
-      this.log.info("onVisibleMapAreaChanged Event", evt);
-
+      switch (evt.eventType){
+        case VisibleMapAreaChangedEventType.FeatureCollectionVisible:
+          this.onFeatureCollectionVisible(map, evt as FeatureCollectionVisibleEvent);
+          break;
+        case VisibleMapAreaChangedEventType.FeatureCollectionOutOfView:
+          this.onFeatureCollectionOutOfView(map, evt);
+          break;
+        case VisibleMapAreaChangedEventType.FeatureCollectionInViewOutsideMinZoom:
+          this.onFeatureCollectionInViewOutsideMinZoom(map, evt as FeatureCollectionSummaryEvent);
+          break;
+        case VisibleMapAreaChangedEventType.IndexChildrenOutOfView:
+          this.onIndexChildrenOutOfView(map, evt);
+          break;
+      }
     });
   }
 
-  private putFeatureOnMap(mapInfo: MapInfo, geojson: geojson.Feature) : void {
+  private onFeatureCollectionVisible(map: L.Map, evt: FeatureCollectionVisibleEvent) {
+    this.log.info("FeatureCollectionVisible Event", evt);
+
+    // remove region marker if there is one
+    this.removeRegionMarkerById(map, evt.id);
+
+    const existingIndex = this.featureCollectionLayer.findIndex(f => f.url === evt.id);
+    if (existingIndex < 0) {
+      this.putFeatureCollectionOnMap(map, evt.featureCollection, evt.id, evt.parentIndexUrls);
+    }
+  }
+
+  private onFeatureCollectionInViewOutsideMinZoom(map: L.Map, evt: FeatureCollectionSummaryEvent) {
+    this.log.info("FeatureCollectionInViewOutsideMinZoom Event", evt);
+
+    this.removeFeatureCollectionById(map, evt.id);
+    this.addRegionMarker(map, evt as RegionMarkerInfo);
+  }
+
+  private onFeatureCollectionOutOfView(map: L.Map, evt: VisibleMapAreaChangedEvent) {
+    this.log.info("FeatureCollectionOutOfView Event", evt);
+
+    this.removeFeatureCollectionById(map, evt.id);
+    this.removeRegionMarkerById(map, evt.id);
+  }
+
+  private onIndexChildrenOutOfView(map: L.Map, evt: VisibleMapAreaChangedEvent) {
+    this.log.info("IndexChildrenOutOfView Event", evt);
+
+    this.removeFeatureCollectionByIndexRef(map, evt.id);
+    this.removeRegionMarkerByIndexRef(map, evt.id);
+  }
+
+  private addRegionMarker(map: L.Map, regionMarker: RegionMarkerInfo) {
+    // only add if not already there
+    const existingIndex = this.regionMarkerLayer.findIndex(f => f.id === regionMarker.id);
+    if (existingIndex < 0) {
+      const center = bboxToLatLngBounds(regionMarker.bbox).getCenter();
+      regionMarker.marker = L.marker(center);
+
+      this.regionMarkerLayer.push(regionMarker);
+
+      regionMarker.marker.addTo(map);
+    }
+  }
+
+  private removeRegionMarkerById(map: L.Map, regionMarkerId: string) {
+    const index = this.regionMarkerLayer.findIndex(f => f.id === regionMarkerId);
+    if (index > -1) {
+      const marker = this.regionMarkerLayer[index].marker;
+      if (marker != null) marker.remove();    
+
+      this.regionMarkerLayer.splice(index, 1);
+    }
+  }
+
+  private removeRegionMarkerByIndexRef(map: L.Map, indexId: string) {
+    const layerIndex = this.regionMarkerLayer.findIndex(l => l.id === indexId || l.parentIndexUrls.some(i => i === indexId));
+    if (layerIndex < 0) return;
+
+    const marker = this.regionMarkerLayer[layerIndex].marker;
+    if (marker != null) marker.remove();    
+
+    this.regionMarkerLayer.splice(layerIndex, 1);
+
+    // search again 
+    this.removeRegionMarkerByIndexRef(map, indexId);
+  }
+
+  private removeFeatureCollectionById(map: L.Map, featureCollectionid: string) {
+    const index = this.featureCollectionLayer.findIndex(f => f.url === featureCollectionid);
+    if (index > -1) {
+      this.featureCollectionLayer[index].layer.remove();    
+      this.featureCollectionLayer.splice(index, 1);
+    }
+  }
+
+  private removeFeatureCollectionByIndexRef(map: L.Map, indexId: string) {
+    const layerIndex = this.featureCollectionLayer.findIndex(l => l.parentIndexUrls.some(i => i === indexId));
+    if (layerIndex < 0) return;
+
+    this.featureCollectionLayer[layerIndex].layer.remove();    
+    this.featureCollectionLayer.splice(layerIndex, 1);
+
+    // search again 
+    this.removeFeatureCollectionByIndexRef(map, indexId);
+  }
+
+  private putFeatureCollectionOnMap(map: L.Map, geojson: geojson.FeatureCollection, id: string, parentIndexUrls: string[]) : void {
     const self = this;
 
-    self.log.info("Drawing ", geojson.properties);
-
-    // Get the map layer first, so we don't create a feature if we have
-    // nowhere to put it
-    const mapLayer = this.getLayer(mapInfo, geojson);
-    if (mapLayer) {      
-      const mapFeature = L.geoJSON(geojson, {
-        onEachFeature: function(feature, layer) {
-          if (feature.properties) {              
-            layer.bindPopup(self.getPopupContents(feature));
-          }
-        },
-        style: function(feature) {
-          return self.getFeatureStyle(feature.properties.category);
+    const mapFeature = L.geoJSON(geojson, {
+      onEachFeature: function(feature, layer) {
+        if (feature.properties) {              
+          layer.bindPopup(self.getPopupContents(feature));
         }
-      });  
-      
-      mapFeature.addTo(mapLayer);        
-    }
-  }
+      },
+      style: function(feature) {
+        return self.getFeatureStyle(feature.properties.category);
+      }
+    });  
 
-  private getLayer(mapInfo: MapInfo, geojson: geojson.Feature) : L.LayerGroup {
-    if (geojson.properties && geojson.properties.category) {
-      return mapInfo.categoryLayers[geojson.properties.category];
-    }
-
-    return null;
-  }
-  
-  private addLayerControl(map: L.Map) {
-    const redLayer = this.createCategoryLayerGroup(map);
-    const amberLayer = this.createCategoryLayerGroup(map);
-    const greenLayer = this.createCategoryLayerGroup(map);
+    this.featureCollectionLayer.push({
+      layer: mapFeature,
+      url: id,
+      parentIndexUrls: parentIndexUrls
+    });
     
-    const categoryLayers = {
-      "Red Spaces": redLayer,
-      "Amber Spaces": amberLayer,
-      "Green Spaces": greenLayer
-    };
-
-    L.control.layers(null, categoryLayers).addTo(map);
-
-    return { redLayer, amberLayer, greenLayer };
-  }
-
-  private createCategoryLayerGroup(map: L.Map) : L.LayerGroup {
-    const layer = L.layerGroup(); 
-    layer.addTo(map);
-
-    return layer;
+    mapFeature.addTo(map);          
   }
 
   private createStreetMapLayer() : L.TileLayer {

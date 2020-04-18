@@ -47,6 +47,13 @@ export enum VisibleMapAreaChangedEventType {
   FeatureCollectionInViewOutsideMinZoom
 }
 
+export function bboxToLatLngBounds(bbox: number[]) : L.LatLngBounds {
+  const southWest = new L.LatLng(bbox[1], bbox[0]);
+  const northEast = new L.LatLng(bbox[3], bbox[2]);
+
+  return new L.LatLngBounds(southWest, northEast);
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -57,6 +64,9 @@ export class FeatureService {
 
   private readonly getIndexErrorHandler = this.createErrorHandlerFor<IndexFileInfo>('getIndex');
   private readonly getFeatureErrorHandler = this.createErrorHandlerFor<geojson.FeatureCollection>('getFeature');
+
+  // TODO: decide what the cut off zoom level of spaces is
+  private readonly featuresVisibleAfterZoomLevel = 11;
 
   // Probably need a better caching mechanism than this
   private indexInfoCache: IndexFileInfo[] = [];
@@ -69,22 +79,23 @@ export class FeatureService {
 
   public onVisibleMapAreaChanged(visibleMapArea: L.LatLngBounds, zoom: number): Observable<VisibleMapAreaChangedEvent> {
     return new Observable<VisibleMapAreaChangedEvent>(subscriber => {
-      this.getFeaturesFromIndex(this.rootIndexUrl, [], visibleMapArea, zoom, subscriber);
+      this.getFeaturesFromIndex(this.rootIndexUrl, null, visibleMapArea, zoom, subscriber);
     });
   }
 
   private getFeaturesFromIndex(url: string, parentIndexUrls: string[], visibleMapArea: L.LatLngBounds, zoom: number, subscriber: Subscriber<VisibleMapAreaChangedEvent>) {
     this.getIndex(url).subscribe(indexInfo => {
 
-      parentIndexUrls.push(url);
-
       indexInfo.indexFile.items.forEach(areaData => {
 
-        if (areaData.bboxBounds == null) {
-          const southWest = new L.LatLng(areaData.bbox[1], areaData.bbox[0]);
-          const northEast = new L.LatLng(areaData.bbox[3], areaData.bbox[2]);
+        // If we're traversing the top node of the index tree, we won't have any parents yet
+        if (parentIndexUrls == null)
+        {
+          parentIndexUrls = [];
+        }
 
-          areaData.bboxBounds = new L.LatLngBounds(southWest, northEast);
+        if (areaData.bboxBounds == null) {
+          areaData.bboxBounds = bboxToLatLngBounds(areaData.bbox);
         }
 
         const isInsideArea = visibleMapArea.intersects(areaData.bboxBounds);
@@ -95,11 +106,15 @@ export class FeatureService {
 
           // this links to a feature collection
           if (isInsideArea) {
-            if (zoom > 12) {  // TODO: decide what the cut off zoom level of spaces is
-              // go and get the feature collection file
+            if (zoom > this.featuresVisibleAfterZoomLevel) {  
+              // go and get the feature collection file and raise an event for the 
+              // collection when it's loaded (maybe from cache)
               this.getFeatures(featuresUrl, parentIndexUrls, subscriber);
             }
-            else {              
+            else {      
+              
+              // The features are in the view bounds, but we're too zoomed out to see them
+              // Fire an event with the info required to put a marker there instead              
               subscriber.next({
                 eventType: VisibleMapAreaChangedEventType.FeatureCollectionInViewOutsideMinZoom,
                 id: featuresUrl,
@@ -111,7 +126,7 @@ export class FeatureService {
             }
           }
           else {
-            // TODO: The feature Collection is not visible, so pass the url up to the subscriber 
+            // The feature Collection is not visible, so pass the url up to the subscriber 
             // in case it needs to be removed from the map
             subscriber.next({
               eventType: VisibleMapAreaChangedEventType.FeatureCollectionOutOfView,
@@ -120,12 +135,17 @@ export class FeatureService {
           }
         }
 
+        // This should maybe be an else if, as I doubt we'll have 1 index file pointing to a feature collection AND another child index
+        // but I guess we could do that in theory
         if (areaData.index != null) {
           const nextIndexUrl = `${indexInfo.parentPath}/${areaData.index}`;
 
           if (isInsideArea) {
             // recurse back into this function for the next URL
-            this.getFeaturesFromIndex(nextIndexUrl, parentIndexUrls, visibleMapArea, zoom, subscriber);
+
+            const branchParents = [...parentIndexUrls];
+            branchParents.push(nextIndexUrl);
+            this.getFeaturesFromIndex(nextIndexUrl, branchParents, visibleMapArea, zoom, subscriber);
           }
           else {
             // The children of this entire area are all out of bounds - indicate this with an event
@@ -145,9 +165,6 @@ export class FeatureService {
     const cachedCollection = self.getFeaturesFromCache(url);
 
     if (cachedCollection !== null) {
-      // TODO: Is this the right place to do this? 
-      // Don't want the features redrawing on every move, but it does need to support moving between regions
-      // that haven't been loaded yet.
 
       self.log.info("FeatureCollection cached for", url);
 

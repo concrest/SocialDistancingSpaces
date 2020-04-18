@@ -1,7 +1,7 @@
 import { Component, AfterViewInit } from '@angular/core';
+import * as L from 'leaflet';
 
 import { MapService } from '../services/map/map.service';
-import { MapInfo } from '../services/map/types';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { LogService } from '../services/log/log.service';
 
@@ -11,7 +11,7 @@ import { LogService } from '../services/log/log.service';
   styleUrls: ['./map.component.scss']
 })
 export class MapComponent implements AfterViewInit {
-  private mapInfo: MapInfo;
+  private map: L.Map;
 
   showModal: boolean = true;
 
@@ -22,7 +22,7 @@ export class MapComponent implements AfterViewInit {
   ) { }
 
   ngAfterViewInit(): void {
-    this.mapInfo = this.mapService.createMap('map');
+    this.map = this.mapService.createMap('map');
   }
 
   browseMap() : void {
@@ -34,12 +34,12 @@ export class MapComponent implements AfterViewInit {
   }
 
   goToDemoArea() : void {
-    this.mapService.goToDemoArea(this.mapInfo);
+    this.mapService.goToDemoArea(this.map);
     this.hideModal();
   }
   
   findUser() : void {
-    this.mapService.geolocate(this.mapInfo).subscribe(
+    this.mapService.geolocate(this.map).subscribe(
       () => this.hideModal(),
       error => {
         this.log.error(error);

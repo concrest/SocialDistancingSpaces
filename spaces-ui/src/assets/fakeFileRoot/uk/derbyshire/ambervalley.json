@@ -1151,7 +1151,7 @@
             "properties": {
                 "location": "Ripley Pit Top, Ripley, Derbyshire",
                 "category": "green",
-                "description": "Open grass space. Sometimes muddy after wet periods"
+                "description": "Open grass space. Sometimes muddy after wet spells"
             },
             "geometry": {
               "type": "Polygon",
